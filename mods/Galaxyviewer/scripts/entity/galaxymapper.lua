@@ -1,120 +1,188 @@
 package.path = package.path .. ";data/scripts/?.lua"
 
+local SCANGATES = false
+
+local seed
+if onServer() then seed = Server().seed end
+
 local SectorSpecifics = require ("sectorspecifics")
 local specs = SectorSpecifics()
+local GatesMap = require ("gatesmap")
+local gateMap
+if onServer() then gateMap = GatesMap(seed) end
 
-local currentY, currentX
-if onServer() then  seed = Server().seed end
-local t = HighResolutionTimer()
+local t, t2 = HighResolutionTimer(), HighResolutionTimer()
+local gMin, gMax = -499, 500
+local currentX, currentY = gMin, gMax
 
-local list = {}
+local list
+-- [sectorY] = {{x = x, type = state, factionIndex = factionIndex}, ...}
+-- "sectorY|,x;type;factionIndex,x;..."
+local factionList
+-- [factionIndex] = factioName
+-- ",factionIndex:factioName,factionIndex:factionName,..."
+local gateList
+-- [index] = {from:{x,y}, to:{{a,b}, ...} }
+-- ",x:y-a:b-a:b-...,x:y-a:b-..."
+
+--client only
+local sectorString = ""
+local dataToProcess = false
+
 function initialize()
     if onServer() then
-        currentX, currentY = -499, 500
+        list, factionList, gateList = {}, {}, {}
+        t2:start()
     end
 end
 
+local updateCount = 0
 function updateServer(timestep)
-    if currentY >= -499 then
-        t:start()
-        generatePreviewLine(currentY)
-        t:stop()
-        print("At y="..currentY, "time: ", t.milliseconds.."ms")
-        t:restart()
+    if currentY < gMin -1 then return end
+    if currentY == gMin -1 then
         currentY = currentY - 1
+        dataGenerated()
+        return
     end
-    if currentY == -500 then
-        currentY = currentY - 1
-        broadcastInvokeClientFunction("save", list, seed:__tostring())
-    end
-end
-
-function generatePreviewLine(y)
-    if y > 500 then print("y to high") return end
-    if y < -499 then print("y too low") return end
-
-    list[y] = {}
-
-    for x=-499, 500 do
-        local state = 0 -- nothing
-        local regular, offgrid, blocked, home = specs:determineContent(x, y, seed)
-        if blocked then
-            state = 1   --space rift
-        elseif home then
-            state = 2   -- home sector (also regular)
-        elseif regular then
-            if offgrid then
-                state = 3   -- dunno, never seen
-            else
-                state = 4   -- green blib, not faction home
-            end
-        elseif offgrid then
-            if regular == false then
-                state = 5   -- orange blip
-            else
-                state = 6 -- should not happen
-            end
-        end
-        if state ~= 0 then
-            local faction = Galaxy():getLocalFaction(x, y) or Galaxy():getNearestFaction(x, y)
-            table.insert(list[y], {x = x, type = state, factionIndex = faction.index})
-        end
-    end
-end
-
-function generatePreviewBox(top, bottom)
-    if top.x > bottom.x then print("top x too high") return end
-    if top.y < bottom.y then print("top y too high") return end
-
-
-    str = ""
-
-    for i=1000-top.y, 1000-bottom.y do
-        str = str.."\n"
-        for j=top.x, bottom.x do
-            local state = 0 -- nothing
-            local regular, offgrid, blocked, home = specs:determineContent(j, (i-1000)*-1, Server().seed)
-            if blocked then
-                state = 1   --space rift
-            elseif home then
-                state = 2   -- home sector (also regular)
-            elseif regular then
-                if offgrid then
-                    state = 3   -- dunno
-                else
-                    state = 4   -- green blib, not faction home
-                end
-            elseif offgrid then
-                if regular == false then
-                    state = 5   -- orange blip
-                else
-                    state = 6 -- should not happen
-                end
-            end
-            if state ~= 0 then
-                str = str.." ("..j..":"..((i-1000)*-1)..")"..state
-            end
-        end
-    end
-    print(str)
-end
-
-function save(list, seed)
+    updateCount = updateCount + 1
+    t:reset()
     t:start()
-    print("saving")
+    if not list[currentY] then list[currentY] = {} end
+    while t.milliseconds < 50 and currentY >= gMin do   -- don't calculate for more than 50ms
+        for offset= 0, 19 do
+            setSectorInfo(currentX, currentY, offset)
+        end
 
-    local str = ""..seed
-    for y=500, -499, -1 do
-        str = str.."\n"..y.."|"
-        for _,s in ipairs(list[y]) do
-            str = str..","..s.x..";"..s.type..";"..s.factionIndex
+        currentX = currentX + 20
+        if currentX > gMax then
+            currentY = currentY - 1
+            currentX = gMin
+            list[currentY] = {}
         end
     end
-    print("needed:", t.milliseconds, "ms to concatenate strings")
+    if updateCount % 20 == 0 then print("At Sector Y: ", currentY) end  -- give notification of current progress every second
+    t:stop()
+end
 
+function setSectorInfo(x, y, offset)
+    x = x + offset
+    local state = 0 -- nothing
+    local regular, offgrid, blocked, home = specs:determineContent(x, y, seed)
+    if blocked then
+        state = 1   --space rift
+    elseif home then
+        state = 2   -- home sector (also regular)
+    elseif regular then
+        if offgrid then
+            state = 3   -- dunno, never seen
+        else
+            state = 4   -- green blib, not faction home
+        end
+    elseif offgrid then
+        if regular == false then
+            state = 5   -- orange blip
+        else
+            state = 6 -- should not happen
+        end
+    end
+    if state ~= 0 then
+        local faction = Galaxy():getLocalFaction(x, y) or Galaxy():getNearestFaction(x, y)
+        local factionIndex = faction.index
+        table.insert(list[y], {x = x, type = state, factionIndex = factionIndex})
+        if not factionList[factionIndex] then factionList[factionIndex] = faction.name end
+        if SCANGATES == true then
+            local gatesTo = gateMap:getConnectedSectors({x = x, y = y})
+            if next(gatesTo) then
+                table.insert(gateList, {from = {x=x, y=y}, to = gatesTo})
+            end
+        end
+    end
+end
+
+function dataGenerated()
+    t2:stop()
+    print("Data generated:", t2.milliseconds.."ms")
+
+    broadcastInvokeClientFunction("receiveData", Server().seed:__tostring(), list, factionList, gateList)
+end
+
+function receiveData(seed, data, pFactionList, pGateList)
+    t2:start()
+    list = data
+    factionList = pFactionList
+    gateList = pGateList
+    dataToProcess = true
+    sectorString = ""
+    --statics
+    sectorString = sectorString..seed .. "\n".. concatenateFactions() .. "\n" .. concatenateGates()
+    print("received", t2.milliseconds.."ms")
+    print("gates", concatenateGates())
+
+end
+
+function updateClient(timestep)
+    if dataToProcess == false or currentY < gMin -1 then return end
+    if currentY == gMin -1 then
+        currentY = currentY - 1
+        dataToProcess = false
+
+        save(sectorString)
+        t2:stop()
+        print("save", t2.milliseconds.."ms")
+        return
+    end
+    updateCount = updateCount + 1
+    t:reset()
+    t:start()
+
+    while t.milliseconds < 50 and currentY >= gMin do   -- don't calculate for more than 50ms
+        concatenateRow()
+        if currentY % 100 == 0 then
+            --print("Concatenated:", currentY)
+        end
+        currentY = currentY - 1
+    end
+    if updateCount % 20 == 0 then print("Concatenate at Sector Y: ", currentY) end  -- give notification of current progress every second
+    t:stop()
+end
+
+
+function concatenateRow()
+    local rowString = "\n"..currentY.."|"
+    for _,s in ipairs(list[currentY]) do
+        rowString = rowString..","..s.x..";"..s.type..";"..s.factionIndex
+    end
+    sectorString = sectorString..rowString
+end
+
+function concatenateFactions()
+    local str = ""
+    for index, name in pairs(factionList) do
+        str = str .. "," .. index .. ":" .. name
+    end
+    return str
+end
+
+function concatenateGates()
+    local str = ""
+    for _,gates in pairs(gateList) do
+        local from = gates.from
+        local fromstr = ""
+        for _, to in pairs(gates.to) do
+            fromstr = fromstr .. ";" .. to.x .. ":" .. to.y
+        end
+        str = str .. "," .. from.x .. ":" .. from.y .. fromstr
+    end
+
+    return str
+end
+
+function save(data_In)
+    t:reset()
+    t:start()
     local file,err = io.open( "galaxymap.txt", "wb" )
     if err then print(err) return err end
-    file:write(str)
+    file:write(data_In)
     file:close()
     t:stop()
     displayChatMessage("saved successful to ../Appdata/Roaming/Avorion/galaxymap.txt in "..t.milliseconds.."ms", "Galaxymapper", 0)
