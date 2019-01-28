@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 
 
 def getGalaxyData():
-    versionFile = open(os.getenv('APPDATA')+"\\Avorion\\galaxymap - Kopie.txt", "r")
+    versionFile = open(os.getenv('APPDATA')+"\\Avorion\\galaxymap.txt", "r")
     seed = 0
     count = 1
     factionList = {}
@@ -50,7 +50,7 @@ def getGalaxyData():
     return seed, factionList, gateList, sectorList
 
 def createImages(factionList, gateList, sectorList):
-    size = 8
+    size = 4
     img = Image.new('RGBA', (1000*size, 1000*size), (0,0,0,255))
     img.save('background.png')
     imgRift = Image.new('RGBA', (1000*size, 1000*size), (0,0,0,0)) #all seethrough
