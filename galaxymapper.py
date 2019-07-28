@@ -1,4 +1,5 @@
 import os
+import random as r
 from PIL import Image, ImageDraw
 
 # line 1: Seed
@@ -18,7 +19,17 @@ def getGalaxyData():
         if count is 1:
             seed = l
         if count is 2:
-            a = 1
+            s = l.replace("/*This refers to factions, such as 'The Xsotan'.*/",'')
+            factionStrings = s.split(",")
+            del factionStrings[0]
+            print(len(factionStrings))
+            for s in factionStrings:
+                a = s.split(":")
+                a[0] = int(a[0])        #faction index
+                a[1] = a[1]             #faction name
+                r.seed(a[0])
+                a.append((r.randint(40, 255), r.randint(40, 255), r.randint(40, 255), 255))  #random color
+                factionList[a[0]] = a[1:3]
         if count is 3:
             gates = l.split(",")
             del gates[0]
@@ -38,11 +49,10 @@ def getGalaxyData():
             sector = {}
             for s in sectors:
                 a = s.split(";")
-                a[0] = int(a[0])
-                a[1] = int(a[1])
-                a[2] = int(a[2])
+                a[0] = int(a[0])    #x
+                a[1] = int(a[1])    #type
+                a[2] = int(a[2])    #factionIndex
                 sector[a[0]] = a[1:3]
-
             y = int(y)
             sectorList[y] = sector
         count += 1
@@ -75,7 +85,12 @@ def createImages(factionList, gateList, sectorList):
             if w[0] == 2:
                 drawHome.rectangle([xC,yC,xC+size-1,yC+size-1], fill=(0,0,255,255))
             if w[0] == 4:
-                drawGreen.rectangle([xC,yC,xC+size-1,yC+size-1], fill=(0,255,0,255))
+                color = (0,255,0,255)
+                if w[1] in factionList:
+                    color = factionList[w[1]][1]
+                else:
+                    print(w[1]+" not in factionlist")
+                drawGreen.rectangle([xC,yC,xC+size-1,yC+size-1], fill=color)
             if w[0] == 5:
                 drawOrange.rectangle([xC,yC,xC+size-1,yC+size-1], fill=(128,128,0,255))
 
@@ -98,12 +113,13 @@ def createImages(factionList, gateList, sectorList):
             stopY = (stopY*-1 + 500)*size
             if startX >= 0 and startY >= 0 and stopX >= 0 and stopY >= 0:
                 drawGate.line([startX-1, startY-1, stopX-1, stopY-1], (255,255,255,255), max(1, int(size/4)))
-
+    print("Saving...")
     imgGate.save('gates.png')
 
 
-
+print("Parsing data...")
 seed, factionList, gateList, sectorList = getGalaxyData()
+print("Creating images...")
 createImages(factionList, gateList, sectorList)
 #
 input("Press enter to exit")
