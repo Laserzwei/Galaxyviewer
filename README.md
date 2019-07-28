@@ -2,8 +2,12 @@
 
 ## Installation
 
-run
-/run Entity():addScriptOnce("mods/Galaxyviewer/scripts/entity/galaxymapper.lua")
+Place the following files: /data/ folder, galaxymapper.py, modinfo.lua and this very file, into %Appdata%/Roaming/Avorion/mods/ (or the linux equivalent)
+
+Then find and enable "galaxyviewer" viewer mod.
+
+Enter in chat:
+/mapgalaxy
 
 Wait for it to tell you that it saved the file. The file should end up in the same folder as your clientlog.
 
