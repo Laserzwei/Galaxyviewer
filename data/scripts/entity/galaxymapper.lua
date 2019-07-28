@@ -1,4 +1,8 @@
+package.path = package.path .. ";data/scripts/lib/?.lua"
 package.path = package.path .. ";data/scripts/?.lua"
+
+include ("utility")
+include ("callable")
 
 local SCANGATES = false
 
@@ -48,7 +52,7 @@ function updateServer(timestep)
     t:reset()
     t:start()
     if not list[currentY] then list[currentY] = {} end
-    while t.milliseconds < 50 and currentY >= gMin do   -- don't calculate for more than 50ms
+    while t.milliseconds < 48 and currentY >= gMin do   -- don't calculate for more than 50ms
         for offset= 0, 19 do
             setSectorInfo(currentX, currentY, offset)
         end
@@ -146,6 +150,10 @@ function updateClient(timestep)
     t:stop()
 end
 
+function term()
+    terminate()
+end
+callable(nil, "term")
 
 function concatenateRow()
     local rowString = "\n"..currentY.."|"
@@ -186,5 +194,6 @@ function save(data_In)
     file:close()
     t:stop()
     displayChatMessage("saved successful to ../Appdata/Roaming/Avorion/galaxymap.txt in "..t.milliseconds.."ms", "Galaxymapper", 0)
+    invokeServerFunction("term")
     return true
 end
