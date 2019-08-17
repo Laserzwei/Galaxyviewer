@@ -3,9 +3,7 @@ package.path = package.path .. ";data/scripts/?.lua"
 
 include ("utility")
 include ("callable")
-
-local SCANGATES = false
-
+local SCANGATES = true
 local seed
 if onServer() then seed = Server().seed end
 
@@ -13,9 +11,8 @@ local SectorSpecifics = require ("sectorspecifics")
 local specs = SectorSpecifics()
 local GatesMap = require ("gatesmap")
 local gateMap
-if onServer() then gateMap = GatesMap(seed) end
 
-local t, t2 = HighResolutionTimer(), HighResolutionTimer()
+local t, t2 = Timer(), Timer()
 local gMin, gMax = -499, 500
 local currentX, currentY = gMin, gMax
 
@@ -35,8 +32,11 @@ local dataToProcess = false
 
 function initialize()
     if onServer() then
+        gateMap = GatesMap(seed)
         list, factionList, gateList = {}, {}, {}
+        print("started")
         t2:start()
+
     end
 end
 
@@ -188,12 +188,16 @@ end
 function save(data_In)
     t:reset()
     t:start()
-    local file,err = io.open( "galaxymap.txt", "wb" )
-    if err then print(err) return err end
+    local file,err = io.open( "moddata/galaxymapper/galaxymap.txt", "wb" )
+    if err then
+        print("A", err)
+        displayChatMessage("Could not save galaxymap.txt: \n"..err, "Galaxymapper", 0)
+        return false
+    end
     file:write(data_In)
     file:close()
     t:stop()
-    displayChatMessage("saved successful to ../Appdata/Roaming/Avorion/galaxymap.txt in "..t.milliseconds.."ms", "Galaxymapper", 0)
+    displayChatMessage("saved successful to ../Appdata/Roaming/Avorion/moddata/galaxymapper/galaxymap.txt in "..t.milliseconds.."ms", "Galaxymapper", 0)
     invokeServerFunction("term")
     return true
 end

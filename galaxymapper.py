@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 
 
 def getGalaxyData():
-    versionFile = open(os.getenv('APPDATA')+"\\Avorion\\galaxymap.txt", "r")
+    versionFile = open(os.getenv('APPDATA')+"\\Avorion\\moddata\\galaxymapper\\galaxymap.txt", "r")
     seed = 0
     count = 1
     factionList = {}
