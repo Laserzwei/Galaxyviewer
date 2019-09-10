@@ -14,3 +14,6 @@ Wait for it to tell you that it saved the file. The file should end up in the mo
 ../Appdata/Roaming/Avorion/moddata/galaxymapper/galaxymap.txt
 
 Then execute galaxymapper.py (requires python3 and the "Pillow" module) and you will get a 4000x4000px representation of your Galaxies sectors.
+
+Here is Pillow's official website:
+https://pillow.readthedocs.io/en/stable/installation.html
